@@ -6,19 +6,17 @@ pipeline {
         ARM_SUBSCRIPTION_ID = credentials('azure-subscription-id')
         ARM_TENANT_ID       = credentials('azure-tenant-id')
     }
+    tools {
+        // Yeh line automatically Terraform download aur configure kar degi
+        terraform 'terraform-1.9.0' 
+    }
     stages {
         stage('Checkout') {
             steps { checkout scm }
         }
         
-        stage('Setup Terraform') {
-    steps {
-        sh '''
-        wget -q https://releases.hashicorp.com/terraform/1.9.0/terraform_1.9.0_linux_amd64.zip
-        unzip -o terraform_1.9.0_linux_amd64.zip -d /usr/local/bin/
-        '''
-    }
-}
+        // "Setup Terraform" stage hata diya gaya hai!
+        
         stage('Terraform Init') {
             steps {
                 dir('environments/preprod') { sh 'terraform init' }
