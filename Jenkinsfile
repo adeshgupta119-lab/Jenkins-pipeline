@@ -67,7 +67,7 @@ EOF
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'vm-ssh-key', keyFileVariable: 'SSH_KEY')]) {
                     dir('ansible') {
-                        sh 'ansible-playbook -i inventory.ini deploy.yml --private-key=$SSH_KEY'
+                        sh "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.ini deploy.yml --private-key=\$SSH_KEY"
                     }
                 }
             }
