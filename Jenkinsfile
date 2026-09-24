@@ -53,10 +53,10 @@ pipeline {
 $FRONTEND_IP ansible_user=azureadmin
 
 [backend]
-$BACKEND_IP ansible_user=azureadmin
+$BACKEND_IP ansible_user=azureadmin ansible_ssh_common_args='-o StrictHostKeyChecking=no -J azureadmin@$FRONTEND_IP'
 
 [database]
-$DB_IP ansible_user=azureadmin
+$DB_IP ansible_user=azureadmin ansible_ssh_common_args='-o StrictHostKeyChecking=no -J azureadmin@$FRONTEND_IP'
 EOF
                     '''
                 }
