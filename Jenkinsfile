@@ -10,6 +10,15 @@ pipeline {
         stage('Checkout') {
             steps { checkout scm }
         }
+        
+        stage('Setup Terraform') {
+    steps {
+        sh '''
+        wget -q https://releases.hashicorp.com/terraform/1.9.0/terraform_1.9.0_linux_amd64.zip
+        unzip -o terraform_1.9.0_linux_amd64.zip -d /usr/local/bin/
+        '''
+    }
+}
         stage('Terraform Init') {
             steps {
                 dir('environments/preprod') { sh 'terraform init' }
