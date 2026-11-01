@@ -1,130 +1,127 @@
-# terraform-1980-infra — Axion project
+# Enterprise Azure 3-Tier Infrastructure & Jenkins-Ansible CI/CD Pipeline 🚀
 
-Azure infra for the Axion project: resource group, storage account, key
-vault, VNet with 3 subnets (frontend/backend/database), NSGs, public IP,
-and 3 Linux VMs (free-tier `Standard_B1s`), one per subnet.
+[![Terraform](https://img.shields.io/badge/Terraform-v1.9%2B-7B42BC?style=for-the-badge&logo=terraform&logoColor=white)](https://www.terraform.io/)
+[![Azure](https://img.shields.io/badge/Microsoft_Azure-Cloud_Infra-0089D6?style=for-the-badge&logo=microsoft-azure&logoColor=white)](https://azure.microsoft.com/)
+[![Jenkins](https://img.shields.io/badge/Jenkins-CI%2FCD_Automation-D24939?style=for-the-badge&logo=jenkins&logoColor=white)](https://www.jenkins.io/)
+[![Ansible](https://img.shields.io/badge/Ansible-Configuration_Mgmt-EE0000?style=for-the-badge&logo=ansible&logoColor=white)](https://www.ansible.com/)
+[![Security](https://img.shields.io/badge/Security-Azure_Key_Vault-0078D4?style=for-the-badge&logo=microsoft&logoColor=white)](#)
 
-## Folder structure
+Production-grade Infrastructure as Code (IaC) and DevSecOps deployment pipeline. Automates the end-to-end provisioning of an **Azure 3-Tier Enterprise Architecture (Frontend, Backend, Database)** with **Azure Key Vault**, **Network Security Groups (NSGs)**, and dynamic **Ansible configuration management** orchestrated through a declarative **Jenkinsfile** CI/CD pipeline.
+
+---
+
+## 🏗️ End-to-End Pipeline & Architecture Workflow
 
 ```
-terraform-1980-infra/
+  ┌──────────────┐
+  │ Code Commit  │
+  └──────┬───────┘
+         │
+         ▼
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │                           JENKINS CI/CD PIPELINE                       │
+  │  Stage 1: Checkout ➔ Stage 2: TF Init ➔ Stage 3: TF Plan               │
+  │  Stage 4: [Manual Production Approval Gate]                            │
+  │  Stage 5: Terraform Apply ➔ Provisions Azure 3-Tier Infra              │
+  │  Stage 6: Dynamic Inventory Extraction (Outputs ➔ inventory.ini)       │
+  │  Stage 7: Ansible Configuration Playbook Execution                     │
+  └───────────────────────────────────┬────────────────────────────────────┘
+                                      │
+         ┌────────────────────────────┼────────────────────────────┐
+         ▼                            ▼                            ▼
+┌──────────────────┐        ┌──────────────────┐        ┌──────────────────┐
+│  Frontend Tier   │        │   Backend Tier   │        │  Database Tier   │
+│  Public IP + NSG │ ────➔  │  Private Subnet  │ ────➔  │  Private Subnet  │
+│  Standard_B1s VM │        │  Standard_B1s VM │        │  Standard_B1s VM │
+└──────────────────┘        └──────────────────┘        └──────────────────┘
+         │                            │                            │
+         └────────────────────────────┼────────────────────────────┘
+                                      ▼
+                        ┌───────────────────────────┐
+                        │ Azure Key Vault & Storage │
+                        │  (Automated Secret Mgmt)  │
+                        └───────────────────────────┘
+```
+
+---
+
+## 📂 Repository Directory Layout
+
+```
+├── ansible/
+│   └── site.yml                 # Playbooks for VM post-provisioning configuration
 ├── environments/
-│   ├── preprod/     → main.tf, provider.tf, variables.tf, terraform.tfvars
-│   └── prod/         → (placeholder, reuses the same modules later)
+│   ├── preprod/
+│   │   ├── main.tf              # Root preprod environment orchestrator
+│   │   ├── provider.tf          # Azure provider & remote state config
+│   │   ├── variables.tf         # Input parameters with validations
+│   │   ├── outputs.tf           # Exported VM IPs, subnets, resource IDs
+│   │   └── terraform.tfvars     # Environment configurations
+│   └── prod/                    # Production environment targets
 ├── modules/
-│   ├── azurerm_resource_group/
-│   ├── azurerm_virtual_network/
-│   ├── azurerm_subnet/
-│   ├── azurerm_network_security_group/
-│   ├── azurerm_public_ip/
-│   ├── azurerm_storage_account/
-│   ├── azurerm_key_vault/
-│   └── azurerm_virtual_machine/   (data.tf + main.tf + variables.tf)
+│   ├── azurerm_resource_group/  # Resource group isolation
+│   ├── azurerm_virtual_network/ # Core VNet definitions
+│   ├── azurerm_subnet/          # Tiered subnets (Frontend, Backend, DB)
+│   ├── azurerm_network_security_group/ # Tiered NSGs restricting SSH & ports
+│   ├── azurerm_public_ip/       # Public IP allocation for Frontend
+│   ├── azurerm_storage_account/ # Storage with deletion-lock protection
+│   ├── azurerm_key_vault/       # Zero-trust secret management
+│   └── azurerm_virtual_machine/ # Standardized compute modules
+├── Jenkinsfile                  # Multi-stage CI/CD pipeline definition
+└── README.md
 ```
 
-## Naming convention
+---
 
-Every resource name is generated automatically from three inputs in
-`terraform.tfvars` — `project`, `environment`, `region_code` — combined in
-`environments/preprod/main.tf` as `locals.name_prefix`. Nobody has to type
-resource names by hand, so there's no risk of typos or mismatched names
-between modules:
+## 🏷️ Standardized Naming Conventions
+
+Every resource name is dynamically derived from three inputs in `terraform.tfvars` (`project`, `environment`, `region_code`) via `locals.name_prefix`, eliminating naming drift across modules:
 
 | Resource | Pattern | Example |
-|---|---|---|
-| Resource group | `rg-<prefix>` | `rg-axion-preprod-cin` |
-| VNet | `vnet-<prefix>` | `vnet-axion-preprod-cin` |
-| Subnet | `snet-<prefix>-<tier>` | `snet-axion-preprod-cin-frontend` |
-| NSG | `nsg-<prefix>-<tier>` | `nsg-axion-preprod-cin-backend` |
-| Public IP | `pip-<prefix>-frontend` | `pip-axion-preprod-cin-frontend` |
-| NIC | `nic-<prefix>-<tier>` | `nic-axion-preprod-cin-database` |
-| VM | `vm-<prefix>-<tier>` | `vm-axion-preprod-cin-frontend` |
-| Storage account | `st<prefix-no-hyphens><random5>` | `staxionpreprodcinab12x` |
-| Key vault | `kv-<prefix>-<random5>` | `kv-axion-preprod-cin-ab12x` |
+| :--- | :--- | :--- |
+| **Resource Group** | `rg-<prefix>` | `rg-axion-preprod-cin` |
+| **VNet** | `vnet-<prefix>` | `vnet-axion-preprod-cin` |
+| **Subnets** | `snet-<prefix>-<tier>` | `snet-axion-preprod-cin-frontend` |
+| **NSGs** | `nsg-<prefix>-<tier>` | `nsg-axion-preprod-cin-backend` |
+| **Public IP** | `pip-<prefix>-frontend` | `pip-axion-preprod-cin-frontend` |
+| **NIC** | `nic-<prefix>-<tier>` | `nic-axion-preprod-cin-database` |
+| **Virtual Machines** | `vm-<prefix>-<tier>` | `vm-axion-preprod-cin-frontend` |
+| **Storage Account** | `st<prefix-no-hyphens><random5>` | `staxionpreprodcinab12x` |
+| **Key Vault** | `kv-<prefix>-<random5>` | `kv-axion-preprod-cin-ab12x` |
 
-Storage account and key vault names must be **globally unique**, so a
-random 5-character suffix (`random_string.suffix`) is appended
-automatically. Everything else only needs to be unique within the
-resource group, so no suffix is needed there.
+---
 
-## Network layout
+## 🔒 Enterprise Security & Secrets Workflow
 
-Three subnets, one per tier, each with its own NSG (SSH port 22 only,
-source restricted by `allowed_ssh_source` / the VNet range):
+1. **Zero Hardcoded Secrets:** `random_password.vm_admin` generates cryptographic credentials dynamically at apply time.
+2. **Key Vault Integration:** Automatically deposited in Azure Key Vault via the `azurerm_key_vault` module.
+3. **Data Source Decoupling:** Compute modules retrieve secrets using `data.azurerm_key_vault_secret`, ensuring passwords never appear in plaintext logs.
+4. **Least Privilege Isolation:** Frontend is internet-facing; Backend and Database tiers have zero public IP exposure and can only be accessed across internal VNet peering/subnets.
 
-- **frontend** — gets the public IP, reachable from the internet
-- **backend** — internal only, no public IP
-- **database** — internal only, no public IP
+---
 
-This mirrors a real production pattern where only the frontend tier is
-internet-facing.
+## 🚀 Usage & Deployment
 
-## Secrets — Key Vault flow
-
-1. `random_password.vm_admin` generates a strong password at apply time —
-   nobody types or hardcodes it.
-2. It's stored in Key Vault via the `azurerm_key_vault` module
-   (`secrets = { "vm-admin-password" = random_password.vm_admin.result }`).
-3. The VM module's `data.tf` reads it back with
-   `data.azurerm_key_vault_secret.vm_password` and assigns it to
-   `admin_password` on each VM.
-4. The resolved value ends up in the Terraform state file, which is why
-   state must live in a properly access-controlled remote backend (see
-   below) rather than sitting around as a local file.
-
-The `secrets` variable on the key vault module is marked `sensitive = true`
-so its value never prints in plan/apply output.
-
-## Data sources vs. module outputs
-
-The VM module fetches the subnet and public IP via `data` blocks
-(`data.tf`) instead of referencing `module.subnet` / `module.pips`
-outputs directly — this simulates a real-world case where networking is
-owned and managed by a separate team/state, and the compute team can only
-look resources up by name. The NSG module, by contrast, takes the subnet
-ID directly from `module.subnet` outputs, since NSG-to-subnet association
-happens within the same apply here.
-
-## Other best practices applied
-
-- **`for_each` everywhere** (VNet, subnet, NSG, public IP, VM, NIC) instead
-  of `count` — adding a new VM/subnet means adding a map entry, not
-  duplicating resource blocks.
-- **Explicit `depends_on`** at both the resource level (NIC waits on the
-  subnet/public IP data sources, VM waits on the NIC) and the module level
-  (`subnet` waits on `vnet`, `vms` waits on `subnet` + `pips` + `nsg` +
-  `keyvault`).
-- **Variable validation** — `environment` must be one of `dev/preprod/prod`;
-  `vm_size` must be a free-tier eligible size.
-- **`lifecycle { prevent_destroy = true }`** on the storage account, so an
-  accidental `terraform destroy` can't silently wipe it. Remove this if you
-  actually intend to tear the environment down.
-- **`lifecycle { ignore_changes = [tags] }`** on the VMs, so out-of-band tag
-  edits in the portal don't get reverted on the next apply.
-- **`boot_diagnostics`** enabled on every VM for troubleshooting boot
-  issues.
-
-## Remote backend (not yet enabled)
-
-`provider.tf` has a commented `backend "azurerm"` block. A remote backend
-needs its target storage account to already exist, so it can't bootstrap
-itself — create that storage account once (manually or via a small
-separate bootstrap config), then uncomment the block and run
-`terraform init -migrate-state`.
-
-## Usage
-
+### 1. Manual Local Execution
 ```bash
 cd environments/preprod
-# edit terraform.tfvars: set allowed_ssh_source to your real IP
 terraform init
 terraform validate
-terraform plan
-terraform apply
+terraform plan -out=tfplan
+terraform apply tfplan
 ```
 
-## Not yet covered
+### 2. Jenkins Automated Pipeline
+Configure credentials in Jenkins Credentials Manager:
+- `azure-client-id`, `azure-secret-id`, `azure-subscription-id`, `azure-tenant-id`
+- `vm-ssh-key` (SSH private key for Ansible execution)
 
-- CI/CD pipeline (skipped per request — add later if needed)
-- `prod` environment (folder exists, empty — copy the same pattern from
-  `preprod` when ready, with its own `terraform.tfvars`)
+Trigger the build via Jenkins Webhook or manual dispatch.
+
+---
+
+## 👤 Author
+**Adesh Gupta**  
+*Lead DevSecOps Engineer & Enterprise Cloud Architect*  
+- GitHub: [@adeshgupta119-lab](https://github.com/adeshgupta119-lab)  
+- Email: [adeshgupta119@gmail.com](mailto:adeshgupta119@gmail.com)
